@@ -1,0 +1,812 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "The AWS CloudFormation template for this Serverless application",
+  "Resources": {
+    "ServerlessDeploymentBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ServerlessDeploymentBucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "ServerlessDeploymentBucket"
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:*",
+              "Effect": "Deny",
+              "Principal": "*",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":s3:::",
+                      {
+                        "Ref": "ServerlessDeploymentBucket"
+                      },
+                      "/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":s3:::",
+                      {
+                        "Ref": "ServerlessDeploymentBucket"
+                      }
+                    ]
+                  ]
+                }
+              ],
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": false
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "CheckInventoryLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/lambda/lambda-step-function-serverless-dev-checkInventory"
+      }
+    },
+    "CalculateTotalLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/lambda/lambda-step-function-serverless-dev-calculateTotal"
+      }
+    },
+    "RedeemPointsLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/lambda/lambda-step-function-serverless-dev-redeemPoints"
+      }
+    },
+    "BillCustomerLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/lambda/lambda-step-function-serverless-dev-billCustomer"
+      }
+    },
+    "RestoreRedeemPointsLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/lambda/lambda-step-function-serverless-dev-restoreRedeemPoints"
+      }
+    },
+    "RestoreQuantityLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/lambda/lambda-step-function-serverless-dev-restoreQuantity"
+      }
+    },
+    "SqsWorkerLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/lambda/lambda-step-function-serverless-dev-sqsWorker"
+      }
+    },
+    "IamRoleLambdaExecution": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": {
+              "Fn::Join": [
+                "-",
+                [
+                  "lambda-step-function-serverless",
+                  "dev",
+                  "lambda"
+                ]
+              ]
+            },
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogStream",
+                    "logs:CreateLogGroup",
+                    "logs:TagResource"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/lambda-step-function-serverless-dev*:*"
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/lambda-step-function-serverless-dev*:*:*"
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:*"
+                  ],
+                  "Resource": "arn:aws:dynamodb:us-east-1:163431423073:table/bookTable"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:*"
+                  ],
+                  "Resource": "arn:aws:dynamodb:us-east-1:163431423073:table/userTable"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sns:*"
+                  ],
+                  "Resource": "arn:aws:sns:us-east-1:163431423073:NotifyCourier"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:*"
+                  ],
+                  "Resource": "arn:aws:sqs:us-east-1:163431423073:OrdersQueue"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "states:*"
+                  ],
+                  "Resource": "arn:aws:states:us-east-1:163431423073:stateMachine:storeCheckoutFlow"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:ReceiveMessage",
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes"
+                  ],
+                  "Resource": [
+                    "arn:aws:sqs:us-east-1:163431423073:OrdersQueue"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "Path": "/",
+        "RoleName": {
+          "Fn::Join": [
+            "-",
+            [
+              "lambda-step-function-serverless",
+              "dev",
+              {
+                "Ref": "AWS::Region"
+              },
+              "lambdaRole"
+            ]
+          ]
+        }
+      }
+    },
+    "CheckInventoryLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Ref": "ServerlessDeploymentBucket"
+          },
+          "S3Key": "serverless/lambda-step-function-serverless/dev/1684070230926-2023-05-14T13:17:10.926Z/lambda-step-function-serverless.zip"
+        },
+        "Handler": "handler.checkInventory",
+        "Runtime": "nodejs12.x",
+        "FunctionName": "lambda-step-function-serverless-dev-checkInventory",
+        "MemorySize": 1024,
+        "Timeout": 6,
+        "Role": {
+          "Fn::GetAtt": [
+            "IamRoleLambdaExecution",
+            "Arn"
+          ]
+        }
+      },
+      "DependsOn": [
+        "CheckInventoryLogGroup"
+      ]
+    },
+    "CalculateTotalLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Ref": "ServerlessDeploymentBucket"
+          },
+          "S3Key": "serverless/lambda-step-function-serverless/dev/1684070230926-2023-05-14T13:17:10.926Z/lambda-step-function-serverless.zip"
+        },
+        "Handler": "handler.calculateTotal",
+        "Runtime": "nodejs12.x",
+        "FunctionName": "lambda-step-function-serverless-dev-calculateTotal",
+        "MemorySize": 1024,
+        "Timeout": 6,
+        "Role": {
+          "Fn::GetAtt": [
+            "IamRoleLambdaExecution",
+            "Arn"
+          ]
+        }
+      },
+      "DependsOn": [
+        "CalculateTotalLogGroup"
+      ]
+    },
+    "RedeemPointsLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Ref": "ServerlessDeploymentBucket"
+          },
+          "S3Key": "serverless/lambda-step-function-serverless/dev/1684070230926-2023-05-14T13:17:10.926Z/lambda-step-function-serverless.zip"
+        },
+        "Handler": "handler.redeemPoints",
+        "Runtime": "nodejs12.x",
+        "FunctionName": "lambda-step-function-serverless-dev-redeemPoints",
+        "MemorySize": 1024,
+        "Timeout": 6,
+        "Role": {
+          "Fn::GetAtt": [
+            "IamRoleLambdaExecution",
+            "Arn"
+          ]
+        }
+      },
+      "DependsOn": [
+        "RedeemPointsLogGroup"
+      ]
+    },
+    "BillCustomerLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Ref": "ServerlessDeploymentBucket"
+          },
+          "S3Key": "serverless/lambda-step-function-serverless/dev/1684070230926-2023-05-14T13:17:10.926Z/lambda-step-function-serverless.zip"
+        },
+        "Handler": "handler.billCustomer",
+        "Runtime": "nodejs12.x",
+        "FunctionName": "lambda-step-function-serverless-dev-billCustomer",
+        "MemorySize": 1024,
+        "Timeout": 6,
+        "Role": {
+          "Fn::GetAtt": [
+            "IamRoleLambdaExecution",
+            "Arn"
+          ]
+        }
+      },
+      "DependsOn": [
+        "BillCustomerLogGroup"
+      ]
+    },
+    "RestoreRedeemPointsLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Ref": "ServerlessDeploymentBucket"
+          },
+          "S3Key": "serverless/lambda-step-function-serverless/dev/1684070230926-2023-05-14T13:17:10.926Z/lambda-step-function-serverless.zip"
+        },
+        "Handler": "handler.restoreRedeemPoints",
+        "Runtime": "nodejs12.x",
+        "FunctionName": "lambda-step-function-serverless-dev-restoreRedeemPoints",
+        "MemorySize": 1024,
+        "Timeout": 6,
+        "Role": {
+          "Fn::GetAtt": [
+            "IamRoleLambdaExecution",
+            "Arn"
+          ]
+        }
+      },
+      "DependsOn": [
+        "RestoreRedeemPointsLogGroup"
+      ]
+    },
+    "RestoreQuantityLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Ref": "ServerlessDeploymentBucket"
+          },
+          "S3Key": "serverless/lambda-step-function-serverless/dev/1684070230926-2023-05-14T13:17:10.926Z/lambda-step-function-serverless.zip"
+        },
+        "Handler": "handler.restoreQuantity",
+        "Runtime": "nodejs12.x",
+        "FunctionName": "lambda-step-function-serverless-dev-restoreQuantity",
+        "MemorySize": 1024,
+        "Timeout": 6,
+        "Role": {
+          "Fn::GetAtt": [
+            "IamRoleLambdaExecution",
+            "Arn"
+          ]
+        }
+      },
+      "DependsOn": [
+        "RestoreQuantityLogGroup"
+      ]
+    },
+    "SqsWorkerLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Ref": "ServerlessDeploymentBucket"
+          },
+          "S3Key": "serverless/lambda-step-function-serverless/dev/1684070230926-2023-05-14T13:17:10.926Z/lambda-step-function-serverless.zip"
+        },
+        "Handler": "handler.sqsWorker",
+        "Runtime": "nodejs12.x",
+        "FunctionName": "lambda-step-function-serverless-dev-sqsWorker",
+        "MemorySize": 1024,
+        "Timeout": 6,
+        "Role": {
+          "Fn::GetAtt": [
+            "IamRoleLambdaExecution",
+            "Arn"
+          ]
+        }
+      },
+      "DependsOn": [
+        "SqsWorkerLogGroup"
+      ]
+    },
+    "CheckInventoryLambdaVersionXskARXWAL0jONcXhFwaLXPWsexpN1KSjgwG2KEl7D4": {
+      "Type": "AWS::Lambda::Version",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "CheckInventoryLambdaFunction"
+        },
+        "CodeSha256": "U4pNh2/FdcvOUYE6o3DDwXhwmvZUmzcGWgaORwZUp+M="
+      }
+    },
+    "CalculateTotalLambdaVersionO8NrLqmE22Yw8bjmSvDI9pMYy7rqJo30b9vueICBc": {
+      "Type": "AWS::Lambda::Version",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "CalculateTotalLambdaFunction"
+        },
+        "CodeSha256": "U4pNh2/FdcvOUYE6o3DDwXhwmvZUmzcGWgaORwZUp+M="
+      }
+    },
+    "RedeemPointsLambdaVersiondet2yCcNMP1me71byXicBA5i2SQMLg2E7rb6fMRQ": {
+      "Type": "AWS::Lambda::Version",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "RedeemPointsLambdaFunction"
+        },
+        "CodeSha256": "U4pNh2/FdcvOUYE6o3DDwXhwmvZUmzcGWgaORwZUp+M="
+      }
+    },
+    "BillCustomerLambdaVersionvRfRCDXGkk5yW8B7yTdDDmxl0N41K31tBdxBY8VuwUg": {
+      "Type": "AWS::Lambda::Version",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "BillCustomerLambdaFunction"
+        },
+        "CodeSha256": "U4pNh2/FdcvOUYE6o3DDwXhwmvZUmzcGWgaORwZUp+M="
+      }
+    },
+    "RestoreRedeemPointsLambdaVersionjMOjcIHZp01w1fHVjL0u2sUhtjOmE8m6UPAQukmc": {
+      "Type": "AWS::Lambda::Version",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "RestoreRedeemPointsLambdaFunction"
+        },
+        "CodeSha256": "U4pNh2/FdcvOUYE6o3DDwXhwmvZUmzcGWgaORwZUp+M="
+      }
+    },
+    "RestoreQuantityLambdaVersionyaSzo3j6LNq3Lr9pPATiXNfYodMfGb4lP2PGIgVLoNw": {
+      "Type": "AWS::Lambda::Version",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "RestoreQuantityLambdaFunction"
+        },
+        "CodeSha256": "U4pNh2/FdcvOUYE6o3DDwXhwmvZUmzcGWgaORwZUp+M="
+      }
+    },
+    "SqsWorkerLambdaVersionX8C78ApINqeBR9Oc0Vnw3cV3eYX6UObtiJX9rj1o0": {
+      "Type": "AWS::Lambda::Version",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "SqsWorkerLambdaFunction"
+        },
+        "CodeSha256": "U4pNh2/FdcvOUYE6o3DDwXhwmvZUmzcGWgaORwZUp+M="
+      }
+    },
+    "StoreCheckoutFlowRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": {
+                  "Fn::Sub": "states.${AWS::Region}.amazonaws.com"
+                }
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "dev-lambda-step-function-serverless-statemachine",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "lambda:InvokeFunction"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "CheckInventoryLambdaFunction",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::Sub": [
+                        "${functionArn}:*",
+                        {
+                          "functionArn": {
+                            "Fn::GetAtt": [
+                              "CheckInventoryLambdaFunction",
+                              "Arn"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "CalculateTotalLambdaFunction",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::Sub": [
+                        "${functionArn}:*",
+                        {
+                          "functionArn": {
+                            "Fn::GetAtt": [
+                              "CalculateTotalLambdaFunction",
+                              "Arn"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "RedeemPointsLambdaFunction",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::Sub": [
+                        "${functionArn}:*",
+                        {
+                          "functionArn": {
+                            "Fn::GetAtt": [
+                              "RedeemPointsLambdaFunction",
+                              "Arn"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "BillCustomerLambdaFunction",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::Sub": [
+                        "${functionArn}:*",
+                        {
+                          "functionArn": {
+                            "Fn::GetAtt": [
+                              "BillCustomerLambdaFunction",
+                              "Arn"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "RestoreRedeemPointsLambdaFunction",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::Sub": [
+                        "${functionArn}:*",
+                        {
+                          "functionArn": {
+                            "Fn::GetAtt": [
+                              "RestoreRedeemPointsLambdaFunction",
+                              "Arn"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "Fn::GetAtt": [
+                        "RestoreQuantityLambdaFunction",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::Sub": [
+                        "${functionArn}:*",
+                        {
+                          "functionArn": {
+                            "Fn::GetAtt": [
+                              "RestoreQuantityLambdaFunction",
+                              "Arn"
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sqs:SendMessage"
+                  ],
+                  "Resource": [
+                    "arn:aws:sqs:us-east-1:163431423073:OrdersQueue"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sns:Publish"
+                  ],
+                  "Resource": [
+                    "arn:aws:sns:us-east-1:163431423073:NotifyCourier"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "StoreCheckoutFlow": {
+      "Type": "AWS::StepFunctions::StateMachine",
+      "Properties": {
+        "DefinitionString": {
+          "Fn::Sub": [
+            "{\n  \"StartAt\": \"checkInventory\",\n  \"States\": {\n    \"checkInventory\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"${550a531c2a7d26c16fafd4c2979249a9}\",\n      \"Catch\": [\n        {\n          \"ErrorEquals\": [\n            \"BookNotFound\"\n          ],\n          \"Next\": \"BookNotFoundError\"\n        },\n        {\n          \"ErrorEquals\": [\n            \"BookOutOfStock\"\n          ],\n          \"Next\": \"BookOutOfStockError\"\n        }\n      ],\n      \"ResultPath\": \"$.book\",\n      \"Next\": \"calculateTotal\"\n    },\n    \"calculateTotal\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"${6c2e8c7a1ed3b168f6dcd4d3fcfc4329}\",\n      \"ResultPath\": \"$.total\",\n      \"Next\": \"isRedeemNeeded\"\n    },\n    \"isRedeemNeeded\": {\n      \"Type\": \"Choice\",\n      \"Choices\": [\n        {\n          \"Variable\": \"$.redeem\",\n          \"BooleanEquals\": true,\n          \"Next\": \"RedeemPoints\"\n        }\n      ],\n      \"Default\": \"BillCustomer\"\n    },\n    \"RedeemPoints\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"${2bcb288fe10d164a7c43aa56fabae00b}\",\n      \"ResultPath\": \"$.total\",\n      \"Catch\": [\n        {\n          \"ErrorEquals\": [\n            \"States.ALL\"\n          ],\n          \"Next\": \"RedeemPointsError\"\n        }\n      ],\n      \"Next\": \"BillCustomer\"\n    },\n    \"BillCustomer\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"${64b678f1542dbfcda8fec410ce390835}\",\n      \"ResultPath\": \"$.billingStatus\",\n      \"Retry\": [\n        {\n          \"ErrorEquals\": [\n            \"States.ALL\"\n          ],\n          \"MaxAttempts\": 0\n        }\n      ],\n      \"Catch\": [\n        {\n          \"ErrorEquals\": [\n            \"States.ALL\"\n          ],\n          \"ResultPath\": \"$.customerBilling\",\n          \"Next\": \"BillingError\"\n        }\n      ],\n      \"Next\": \"PrepareOrder\"\n    },\n    \"PrepareOrder\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"arn:aws:states:::sqs:sendMessage.waitForTaskToken\",\n      \"Parameters\": {\n        \"QueueUrl\": \"https://sqs.us-east-1.amazonaws.com/163431423073/OrdersQueue\",\n        \"MessageBody\": {\n          \"Input.$\": \"$\",\n          \"Token.$\": \"$$.Task.Token\"\n        }\n      },\n      \"ResultPath\": \"$.courierStatus\",\n      \"Catch\": [\n        {\n          \"ErrorEquals\": [\n            \"NoCourierAvailable\"\n          ],\n          \"ResultPath\": \"$.courierError\",\n          \"Next\": \"RefundCustomer\"\n        }\n      ],\n      \"Next\": \"DispatchOrder\"\n    },\n    \"DispatchOrder\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"arn:aws:states:::sns:publish\",\n      \"Parameters\": {\n        \"TopicArn\": \"arn:aws:sns:us-east-1:163431423073:NotifyCourier\",\n        \"Message.$\": \"$\"\n      },\n      \"Next\": \"Dispatched\"\n    },\n    \"Dispatched\": {\n      \"Type\": \"Pass\",\n      \"Result\": \"Your order will be dispatched in 24 hours\",\n      \"End\": true\n    },\n    \"RestoreRedeemPoints\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"${0997c925e72e8207a88902cb7e43c811}\",\n      \"End\": true\n    },\n    \"RestoreQuantity\": {\n      \"Type\": \"Task\",\n      \"Resource\": \"${00bd55b021794056911f9fb8f8c3a651}\",\n      \"ResultPath\": \"$.quantityRestoreStatus\",\n      \"Next\": \"RestoreRedeemPoints\"\n    },\n    \"RefundCustomer\": {\n      \"Type\": \"Pass\",\n      \"Result\": \"Customer is refunded\",\n      \"ResultPath\": \"$.refundStatus\",\n      \"Next\": \"RestoreQuantity\"\n    },\n    \"BookNotFoundError\": {\n      \"Type\": \"Pass\",\n      \"Result\": \"No such book available\",\n      \"End\": true\n    },\n    \"BookOutOfStockError\": {\n      \"Type\": \"Pass\",\n      \"Result\": \"Sorry, the books is out of stock\",\n      \"End\": true\n    },\n    \"RedeemPointsError\": {\n      \"Type\": \"Pass\",\n      \"Result\": \"Error in redeeming points\",\n      \"End\": true\n    },\n    \"BillingError\": {\n      \"Type\": \"Pass\",\n      \"Result\": \"Billing error\",\n      \"ResultPath\": \"$.billingStatus\",\n      \"Next\": \"RestoreRedeemPoints\"\n    }\n  }\n}",
+            {
+              "550a531c2a7d26c16fafd4c2979249a9": {
+                "Fn::GetAtt": [
+                  "CheckInventoryLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "6c2e8c7a1ed3b168f6dcd4d3fcfc4329": {
+                "Fn::GetAtt": [
+                  "CalculateTotalLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "2bcb288fe10d164a7c43aa56fabae00b": {
+                "Fn::GetAtt": [
+                  "RedeemPointsLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "64b678f1542dbfcda8fec410ce390835": {
+                "Fn::GetAtt": [
+                  "BillCustomerLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "0997c925e72e8207a88902cb7e43c811": {
+                "Fn::GetAtt": [
+                  "RestoreRedeemPointsLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "00bd55b021794056911f9fb8f8c3a651": {
+                "Fn::GetAtt": [
+                  "RestoreQuantityLambdaFunction",
+                  "Arn"
+                ]
+              }
+            }
+          ]
+        },
+        "RoleArn": {
+          "Fn::GetAtt": [
+            "StoreCheckoutFlowRole",
+            "Arn"
+          ]
+        },
+        "StateMachineName": "storeCheckoutFlow"
+      },
+      "DependsOn": [
+        "StoreCheckoutFlowRole"
+      ]
+    },
+    "SqsWorkerEventSourceMappingSQSOrdersQueue": {
+      "Type": "AWS::Lambda::EventSourceMapping",
+      "DependsOn": [
+        "IamRoleLambdaExecution"
+      ],
+      "Properties": {
+        "BatchSize": 1,
+        "EventSourceArn": "arn:aws:sqs:us-east-1:163431423073:OrdersQueue",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "SqsWorkerLambdaFunction",
+            "Arn"
+          ]
+        },
+        "Enabled": true
+      }
+    }
+  },
+  "Outputs": {
+    "ServerlessDeploymentBucketName": {
+      "Value": {
+        "Ref": "ServerlessDeploymentBucket"
+      },
+      "Export": {
+        "Name": "sls-lambda-step-function-serverless-dev-ServerlessDeploymentBucketName"
+      }
+    },
+    "CheckInventoryLambdaFunctionQualifiedArn": {
+      "Description": "Current Lambda function version",
+      "Value": {
+        "Ref": "CheckInventoryLambdaVersionXskARXWAL0jONcXhFwaLXPWsexpN1KSjgwG2KEl7D4"
+      },
+      "Export": {
+        "Name": "sls-lambda-step-function-serverless-dev-CheckInventoryLambdaFunctionQualifiedArn"
+      }
+    },
+    "CalculateTotalLambdaFunctionQualifiedArn": {
+      "Description": "Current Lambda function version",
+      "Value": {
+        "Ref": "CalculateTotalLambdaVersionO8NrLqmE22Yw8bjmSvDI9pMYy7rqJo30b9vueICBc"
+      },
+      "Export": {
+        "Name": "sls-lambda-step-function-serverless-dev-CalculateTotalLambdaFunctionQualifiedArn"
+      }
+    },
+    "RedeemPointsLambdaFunctionQualifiedArn": {
+      "Description": "Current Lambda function version",
+      "Value": {
+        "Ref": "RedeemPointsLambdaVersiondet2yCcNMP1me71byXicBA5i2SQMLg2E7rb6fMRQ"
+      },
+      "Export": {
+        "Name": "sls-lambda-step-function-serverless-dev-RedeemPointsLambdaFunctionQualifiedArn"
+      }
+    },
+    "BillCustomerLambdaFunctionQualifiedArn": {
+      "Description": "Current Lambda function version",
+      "Value": {
+        "Ref": "BillCustomerLambdaVersionvRfRCDXGkk5yW8B7yTdDDmxl0N41K31tBdxBY8VuwUg"
+      },
+      "Export": {
+        "Name": "sls-lambda-step-function-serverless-dev-BillCustomerLambdaFunctionQualifiedArn"
+      }
+    },
+    "RestoreRedeemPointsLambdaFunctionQualifiedArn": {
+      "Description": "Current Lambda function version",
+      "Value": {
+        "Ref": "RestoreRedeemPointsLambdaVersionjMOjcIHZp01w1fHVjL0u2sUhtjOmE8m6UPAQukmc"
+      },
+      "Export": {
+        "Name": "sls-lambda-step-function-serverless-dev-RestoreRedeemPointsLambdaFunctionQualifiedArn"
+      }
+    },
+    "RestoreQuantityLambdaFunctionQualifiedArn": {
+      "Description": "Current Lambda function version",
+      "Value": {
+        "Ref": "RestoreQuantityLambdaVersionyaSzo3j6LNq3Lr9pPATiXNfYodMfGb4lP2PGIgVLoNw"
+      },
+      "Export": {
+        "Name": "sls-lambda-step-function-serverless-dev-RestoreQuantityLambdaFunctionQualifiedArn"
+      }
+    },
+    "SqsWorkerLambdaFunctionQualifiedArn": {
+      "Description": "Current Lambda function version",
+      "Value": {
+        "Ref": "SqsWorkerLambdaVersionX8C78ApINqeBR9Oc0Vnw3cV3eYX6UObtiJX9rj1o0"
+      },
+      "Export": {
+        "Name": "sls-lambda-step-function-serverless-dev-SqsWorkerLambdaFunctionQualifiedArn"
+      }
+    },
+    "StoreCheckoutFlowArn": {
+      "Description": "Current StateMachine Arn",
+      "Value": {
+        "Ref": "StoreCheckoutFlow"
+      },
+      "Export": {
+        "Name": "sls-lambda-step-function-serverless-dev-StoreCheckoutFlowArn"
+      }
+    }
+  }
+}
